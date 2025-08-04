@@ -84,7 +84,7 @@ index_html = (
     + "\n".join(index_entries)
     + "\n</ul></body></html>"
 )
-with open(os.path.join(OUTPUT_DIR, "index.html"), "w", encoding="utf-8") as f:
+with open("index.html", "w", encoding="utf-8") as f:
     f.write(index_html)
 
 print(f"✅ Finished. Posts saved to '{POSTS_DIR}', index at '{OUTPUT_DIR}/index.html'")
