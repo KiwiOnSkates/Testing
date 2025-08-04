@@ -7,12 +7,10 @@ from html.parser import HTMLParser
 # === CONFIGURATION ===
 FEED_FILE = "feed.atom"
 OUTPUT_DIR = "site"
-PAGES_DIR = os.path.join(OUTPUT_DIR, "pages")
 POSTS_DIR = os.path.join(OUTPUT_DIR, "posts")
-BASE_URL = "https://yourblog.blogspot.com"  # Change this to your blog's domain
+BASE_URL = "https://yourblog.blogspot.com"  # Change to your blog's domain
 
 # === Ensure output directories exist ===
-os.makedirs(PAGES_DIR, exist_ok=True)
 os.makedirs(POSTS_DIR, exist_ok=True)
 
 # === Link extractor from <a href="..."> ===
@@ -27,17 +25,15 @@ class LinkExtractor(HTMLParser):
                 if key == "href" and value.startswith("/"):
                     self.links.append(value)
 
-# === Replace relative links in content to local post links ===
+# === Replace relative links in post content to local post filenames ===
 def replace_relative_links(content_html):
-    # Replace href="/some/path/postname.html" with href="../posts/postname.html"
+    # Replace href="/some/path/post.html" with href="post.html" (same folder)
     def repl(match):
         href = match.group(1)
         filename = os.path.basename(href)
-        local_path = f"../posts/{filename}"
-        return f'href="{local_path}"'
+        return f'href="{filename}"'
     
-    replaced_content = re.sub(r'href="(/[^"]+)"', repl, content_html)
-    return replaced_content
+    return re.sub(r'href="(/[^"]+)"', repl, content_html)
 
 # === Load Atom feed ===
 tree = ET.parse(FEED_FILE)
@@ -54,9 +50,8 @@ for entry in root.findall("atom:entry", ns):
     content_elem = entry.find("atom:content", ns)
 
     if content_elem is None:
-        continue  # skip if no content
+        continue
 
-    # Safely get title or fallback to auto-numbered
     if title_elem is not None and title_elem.text:
         raw_title = title_elem.text.strip()
         slug = re.sub(r"[^\w\-]+", "-", raw_title.lower()).strip("-") or "untitled"
@@ -65,7 +60,6 @@ for entry in root.findall("atom:entry", ns):
         raw_title = f"Untitled {untitled_count}"
         slug = f"untitled-{untitled_count}"
 
-    # Ensure unique slug (in case of repeated titles)
     orig_slug = slug
     i = 1
     while slug in used_slugs:
@@ -76,17 +70,12 @@ for entry in root.findall("atom:entry", ns):
     filename = f"{slug}.html"
     post_path = os.path.join(POSTS_DIR, filename)
 
-    # Extract and decode HTML content
     content_html = unescape(content_elem.text or "")
-
-    # Replace relative links inside content to point to local files
     content_html = replace_relative_links(content_html)
 
-    # Write the post HTML file
     with open(post_path, "w", encoding="utf-8") as f:
         f.write(f"<h1>{raw_title}</h1>\n{content_html}")
 
-    # Add to index
     index_entries.append(f'<li><a href="posts/{filename}">{raw_title}</a></li>')
 
 # === Build index.html ===
