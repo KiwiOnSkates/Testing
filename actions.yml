@@ -4,7 +4,7 @@ author: "Your Name"
 
 runs:
   using: "python"
-  main: "logger.py"
+  main: "main.py"
 
 branding:
   icon: "clock"
