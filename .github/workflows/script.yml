@@ -2,10 +2,10 @@ name: Scripty
 
 on:
   repository_dispatch:
-    types: [eternal-trigger]  # ✅ Make sure this matches your curl event_type
+    types: [eternal-trigger]  # Your custom event type
 
 permissions:
-  contents: write  # ✅ Allow pushing to the repo
+  contents: write  # Allow pushing to repo
 
 jobs:
   run:
@@ -15,7 +15,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: List files for debugging (before)
-        run: ls -l
+        run: |
+          pwd
+          ls -la
+          ls -la site || echo "site/ not found"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,7 +29,12 @@ jobs:
         run: python main.py
 
       - name: List files for debugging (after)
-        run: ls -R site/
+        run: |
+          pwd
+          ls -la
+          ls -la site || echo "site/ not found"
+          ls -la site/posts || echo "site/posts not found"
+          ls -la site/pages || echo "site/pages not found"
 
       - name: Configure Git
         run: |
@@ -35,7 +43,8 @@ jobs:
 
       - name: Commit and push generated files
         run: |
-          git add site/
-          git commit -m "Auto-generate site from feed"
+          git add index.html site/
+          git diff --staged || echo "No staged changes"
+          git commit -m "Auto-generate site and index.html from feed" || echo "No changes to commit"
           git push
-        continue-on-error: true  # Prevent failure if no changes
+        continue-on-error: true
