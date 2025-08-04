@@ -19,6 +19,10 @@ BASE_URL = "https://yourblog.blogspot.com"  # Change this to your blog's domain
 # === Ensure output directories exist ===
 os.makedirs(PAGES_DIR, exist_ok=True)
 
+tree = ET.parse(FEED_FILE)
+root = tree.getroot()
+ns = {'atom': 'http://www.w3.org/2005/Atom'}
+
 # === Process each entry ===
 for entry in root.findall("atom:entry", ns):
     title_elem = entry.find("atom:title", ns)
