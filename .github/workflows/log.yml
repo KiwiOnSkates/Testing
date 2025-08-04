@@ -1,22 +1,13 @@
-name: Run Logger Action Hourly
+name: Run Logger Script
 
 on:
-  schedule:
-    - cron: '0 * * * *'    # every hour
-  workflow_dispatch:       # manual trigger
-  push:
-    branches:
-      - main
-    paths:
-      - 'main.py'
-      - 'action.yml'
+  workflow_dispatch:
 
 jobs:
-  log-via-action:
+  run:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Python Logger
-        uses: ./
+      - name: Run Python script
+        run: python main.py
