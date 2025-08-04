@@ -24,10 +24,14 @@ os.makedirs(POSTS_DIR, exist_ok=True)
 for entry in root.findall("atom:entry", ns):
     title_elem = entry.find("atom:title", ns)
     
+    if title_elem is not None and title_elem.text:
+        raw_title = title_elem.text.strip()
+        print(raw_title)
 
 def main():
     now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')
     print(f"[{now}] Logger action ran.")
+
 
 if __name__ == "__main__":
     main()
