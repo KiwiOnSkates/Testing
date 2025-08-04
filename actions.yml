@@ -1,0 +1,11 @@
+name: "Python Logger Action"
+description: "Logs current time via Python"
+author: "Your Name"
+
+runs:
+  using: "python"
+  main: "logger.py"
+
+branding:
+  icon: "clock"
+  color: "blue"
