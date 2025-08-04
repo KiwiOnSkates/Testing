@@ -18,7 +18,6 @@ BASE_URL = "https://yourblog.blogspot.com"  # Change this to your blog's domain
 
 # === Ensure output directories exist ===
 os.makedirs(PAGES_DIR, exist_ok=True)
-os.makedirs(POSTS_DIR, exist_ok=True)
 
 # === Process each entry ===
 for entry in root.findall("atom:entry", ns):
