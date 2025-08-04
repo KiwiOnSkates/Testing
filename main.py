@@ -49,12 +49,12 @@ for entry in root.findall("atom:entry", ns):
     # Safely get title or fallback to auto-numbered
     if title_elem is not None and title_elem.text:
         raw_title = title_elem.text.strip()
-        print(raw_title)
+        #print(raw_title)
         slug = re.sub(r"[^\w\-]+", "-", raw_title.lower()).strip("-") or "untitled"
     else:
         untitled_count += 1
         raw_title = f"Untitled {untitled_count}"
-        print(raw_title)
+        #print(raw_title)
         slug = f"untitled-{untitled_count}"
 
     # Ensure unique slug (in case of repeated titles)
