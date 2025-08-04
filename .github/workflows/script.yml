@@ -1,4 +1,4 @@
-name: Script
+name: Scripty
 
 on:
   repository_dispatch:
