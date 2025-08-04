@@ -1,8 +1,9 @@
 name: Script
 
 on:
-  schedule:
-    - cron: '0 23 * * *'
+  repository_dispatch:
+    types: [external-trigger]
+
 jobs:
   run:
     runs-on: ubuntu-latest
