@@ -1,4 +1,4 @@
-name: Run Feedparser Script
+name: Run Feed Parser
 
 on:
   workflow_dispatch:
@@ -6,17 +6,17 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: List files for debugging
+        run: ls -l
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'  # or latest stable
+          python-version: '3.11'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run script
+      - name: Run main.py
         run: python main.py
