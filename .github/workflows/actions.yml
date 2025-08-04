@@ -2,7 +2,7 @@ name: Run Python 3.13.5 Script Hourly
 
 on:
   schedule:
-    - cron: '0 * * * *'  # Every hour
+    - cron: '*/1 * * * *'  # every minute
   workflow_dispatch:
   push:
     paths:
