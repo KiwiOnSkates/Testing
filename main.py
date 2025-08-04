@@ -1,10 +1,8 @@
 import os
 import re
-import time
 import xml.etree.ElementTree as ET
 from html import unescape
 from html.parser import HTMLParser
-from pathlib import Path
 
 # === CONFIGURATION ===
 FEED_FILE = "feed.atom"
@@ -49,12 +47,10 @@ for entry in root.findall("atom:entry", ns):
     # Safely get title or fallback to auto-numbered
     if title_elem is not None and title_elem.text:
         raw_title = title_elem.text.strip()
-        #print(raw_title)
         slug = re.sub(r"[^\w\-]+", "-", raw_title.lower()).strip("-") or "untitled"
     else:
         untitled_count += 1
         raw_title = f"Untitled {untitled_count}"
-        #print(raw_title)
         slug = f"untitled-{untitled_count}"
 
     # Ensure unique slug (in case of repeated titles)
@@ -82,15 +78,15 @@ for entry in root.findall("atom:entry", ns):
         f.write(f"<h1>{raw_title}</h1>\n{content_html}")
 
     # Add to index
-    index_entries.append(f'<li><a href="posts/{filename}">{raw_title}</a></li>')
+    index_entries.append(f'<li><a href="site/posts/{filename}">{raw_title}</a></li>')
 
-# === Build index.html ===
+# === Build index.html in repo root (overwrites if exists) ===
 index_html = (
     "<html><body><h1>Blog Index</h1><ul>\n"
     + "\n".join(index_entries)
     + "\n</ul></body></html>"
 )
-with open(os.path.join(OUTPUT_DIR, "index.html"), "w", encoding="utf-8") as f:
+with open("index.html", "w", encoding="utf-8") as f:
     f.write(index_html)
 
-print(f"✅ Finished. Posts saved to '{POSTS_DIR}', index at '{OUTPUT_DIR}/index.html'")
+print(f"✅ Finished. Posts saved to '{POSTS_DIR}', index at 'index.html'")
