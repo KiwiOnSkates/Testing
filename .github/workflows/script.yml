@@ -2,7 +2,10 @@ name: Script
 
 on:
   repository_dispatch:
-    types: [external-trigger]
+    types: [eternal-trigger]  # ✅ Make sure this matches your curl event_type
+
+permissions:
+  contents: write  # ✅ Allow pushing to the repo
 
 jobs:
   run:
@@ -11,7 +14,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: List files for debugging
+      - name: List files for debugging (before)
         run: ls -l
 
       - name: Set up Python
@@ -21,3 +24,18 @@ jobs:
 
       - name: Run main.py
         run: python main.py
+
+      - name: List files for debugging (after)
+        run: ls -R site/
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push generated files
+        run: |
+          git add site/
+          git commit -m "Auto-generate site from feed"
+          git push
+        continue-on-error: true  # Prevent failure if no changes
