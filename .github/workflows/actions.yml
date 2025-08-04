@@ -1,44 +1,28 @@
-name: Run Python 3.13.5 Script Hourly
+name: Run main.py hourly
 
 on:
   schedule:
-    - cron: '*/1 * * * *'  # every minute
-  workflow_dispatch:
-  push:
-    paths:
-      - '**.py'
+    - cron: '0 * * * *'  # Runs at the top of every hour (UTC)
+  workflow_dispatch:      # Optional manual trigger from GitHub UI
 
 jobs:
-  build-and-run:
+  run-main:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
-      - name: Install dependencies for building Python
-        run: |
-          sudo apt update
-          sudo apt install -y wget build-essential libssl-dev zlib1g-dev \
-            libncurses5-dev libncursesw5-dev libreadline-dev libsqlite3-dev \
-            libgdbm-dev libdb5.3-dev libbz2-dev libexpat1-dev liblzma-dev tk-dev
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
-      - name: Download and build Python 3.13.5
+      - name: Install dependencies
         run: |
-          wget https://www.python.org/ftp/python/3.13.5/Python-3.13.5.tgz
-          tar xzf Python-3.13.5.tgz
-          cd Python-3.13.5
-          ./configure --enable-optimizations
-          make -j$(nproc)
-          sudo make altinstall
-          python3.13 --version
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Install pip and dependencies
-        run: |
-          python3.13 -m ensurepip
-          python3.13 -m pip install --upgrade pip
-          python3.13 -m pip install -r requirements.txt
-
-      - name: Run your Python script
-        run: |
-          python3.13 your_script.py
+      - name: Run main.py
+        run: python main.py
+        
