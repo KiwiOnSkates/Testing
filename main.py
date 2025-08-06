@@ -109,7 +109,7 @@ def save_posts_as_html(posts, output_dir="site", link_fixes={}):
         # Fix internal content links
         for bad_link, fixed_link in link_fixes.items():
             if bad_link in content:
-                content = content.replace(bad_link, f"{output_dir}/{fixed_link}")
+                content = content.replace(bad_link, f"{fixed_link}")
 
         html = f"""<!DOCTYPE html>
 <html lang="en">
