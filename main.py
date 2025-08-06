@@ -128,7 +128,7 @@ def save_posts_as_html(posts, output_dir="site", link_fixes={}):
         with open(os.path.join(output_dir, fn), "w", encoding="utf-8") as f:
             f.write(html)
 
-        index_items.append(f'<li><a href="{output_dir}/{fn}">{title}</a></li>')
+        index_items.append(f'<li><a href="sites/{fn}">{title}</a></li>')
 
     # Write index.html at root
     joined_items = '\n'.join(index_items)
