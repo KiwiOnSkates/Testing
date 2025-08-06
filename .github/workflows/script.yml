@@ -2,19 +2,20 @@ name: Scripty
 
 on:
   repository_dispatch:
-    types: [eternal-trigger]
+    types: [eternal-trigger]  # Custom trigger event
 
 permissions:
-  contents: write
+  contents: write  # Allow push access to the repo
 
 jobs:
   run:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: List files for debugging (before)
+      - name: List files before script
         run: |
           pwd
           ls -la
@@ -33,13 +34,16 @@ jobs:
       - name: Run main.py
         run: python main.py
 
-      - name: List files for debugging (after)
+      - name: List files after script
         run: |
           pwd
           ls -la
           ls -la site || echo "site/ not found"
           ls -la site/posts || echo "site/posts not found"
           ls -la site/pages || echo "site/pages not found"
+
+      - name: Show index.html content
+        run: cat index.html
 
       - name: Configure Git
         run: |
@@ -48,7 +52,8 @@ jobs:
 
       - name: Commit and push generated files
         run: |
-          git add index.html site/
+          git add -A
+          git status
           git diff --staged || echo "No staged changes"
           git commit -m "Auto-generate site and index.html from feed" || echo "No changes to commit"
           git push
