@@ -96,7 +96,7 @@ def correct_links(content_links, entry_links):
     print("Valid Links:", len(replacements))
     return replacements
 
-def save_posts_as_html(posts, output_dir="sites", link_fixes={}):
+def save_posts_as_html(posts, output_dir="site", link_fixes={}):
     os.makedirs(output_dir, exist_ok=True)
     index_items = []
 
@@ -160,4 +160,4 @@ if __name__ == "__main__":
     print("Content count:", len(data["content_links"]))
 
     link_fixes = correct_links(data["content_links"], data["blog_links"])
-    save_posts_as_html(data["posts"], "sites", link_fixes)
+    save_posts_as_html(data["posts"], "site", link_fixes)
