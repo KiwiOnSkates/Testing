@@ -2,10 +2,10 @@ name: Scripty
 
 on:
   repository_dispatch:
-    types: [eternal-trigger]  # Your custom event type
+    types: [eternal-trigger]
 
 permissions:
-  contents: write  # Allow pushing to repo
+  contents: write
 
 jobs:
   run:
@@ -24,6 +24,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
 
       - name: Run main.py
         run: python main.py
