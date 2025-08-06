@@ -1,134 +1,181 @@
-import os
-import re
 import xml.etree.ElementTree as ET
-from html import unescape
-from html.parser import HTMLParser
+import requests, os, re
 
-FEED_FILE = "feed.atom"
-OUTPUT_DIR = "site"
-POSTS_DIR = os.path.join(OUTPUT_DIR, "posts")
+REMOTE_FEED_URL = "https://thway.uk/feeds/posts/default"
+LOCAL_FILE = "feed.atom"
 
-os.makedirs(POSTS_DIR, exist_ok=True)
+namespaces = {
+    'atom': 'http://www.w3.org/2005/Atom',
+    'blogger': 'http://schemas.google.com/blogger/2018'
+}
 
-class LinkExtractor(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.links = []
+def collect_all_links():
+    blog_links = set()
+    content_links = set()
+    posts_dict = {}      # Store posts keyed by filename with metadata
+    seen_ids = set()     # To avoid duplicate entries by id
+    count = 0            # Total entries processed
 
-    def handle_starttag(self, tag, attrs):
-        if tag == "a":
-            for key, value in attrs:
-                if key == "href" and value.startswith("/"):
-                    self.links.append(value)
+    def process_entries(entries):
+        nonlocal count
+        for entry in entries:
+            id_elem = entry.find('atom:id', namespaces)
+            if id_elem is None:
+                continue
+            entry_id = id_elem.text
+            if entry_id in seen_ids:
+                continue
+            seen_ids.add(entry_id)
+            count += 1
 
-def make_slug(title):
-    slug = re.sub(r"[^\w\-]+", "-", title.lower()).strip("-")
-    return slug or "untitled"
+            filename_elem = entry.find('blogger:filename', namespaces)
+            content_elem = entry.find('atom:content', namespaces)
+            title_elem = entry.find('atom:title', namespaces)
+            published_elem = entry.find('atom:published', namespaces)
 
-def replace_relative_links(content_html, link_map):
-    def repl(m):
-        href = m.group(1)  # e.g. "/2025/05/original-post.html"
-        fname = os.path.basename(href)
-        if fname in link_map:
-            # Replace with local filename only, because all posts in same folder
-            return f'href="{link_map[fname]}"'
+            if filename_elem is not None and content_elem is not None:
+                fname = filename_elem.text
+                blog_links.add(fname)
+
+                # Save metadata in posts_dict keyed by filename
+                posts_dict[fname] = {
+                    "title": title_elem.text if title_elem is not None else None,
+                    "content": content_elem.text,
+                    "published": published_elem.text if published_elem is not None else None,
+                }
+
+                content_html = content_elem.text
+                if content_html:
+                    try:
+                        content_root = ET.fromstring(f"<root>{content_html}</root>")
+                        for a_tag in content_root.findall('.//a'):
+                            href = a_tag.get('href')
+                            if href and not href.startswith("https://") and "/search" not in href:
+                                # Normalize href trailing slash and extension
+##                                if href.endswith('/'):
+##                                    href = href[:-1] + ".html"
+##                                elif not href.endswith('.html'):
+           
+                                content_links.add(href)
+                    except ET.ParseError:
+                        pass
+
+    # --- Process local entries ---
+    try:
+        tree = ET.parse(LOCAL_FILE)
+        local_entries = tree.getroot().findall('atom:entry', namespaces)
+        process_entries(local_entries)
+    except FileNotFoundError:
+        print(f"Local file '{LOCAL_FILE}' not found.")
+
+    # --- Process remote entries paginated ---
+    start_index = 1
+    max_results = 100
+
+    while True:
+        url = f"{REMOTE_FEED_URL}?start-index={start_index}&max-results={max_results}"
+        response = requests.get(url)
+        response.raise_for_status()
+
+        root = ET.fromstring(response.content)
+        entries = root.findall('atom:entry', namespaces)
+        if not entries:
+            break
+
+        process_entries(entries)
+        start_index += max_results
+
+    return {
+        "blog_links": blog_links,
+        "content_links": content_links,
+        "posts": posts_dict,
+        "count": count
+    }
+
+def correct_links(content_links, entry_links):
+    link_fixes = {}
+    valid_links = 0
+
+
+    new_entry = []
+    replacements = {}
+    for c_link in entry_links:
+        new_entry.append(c_link.split("/")[-1])
+
+    for c_link in content_links:
+        if c_link.split("/")[-1] in new_entry:
+            replacements[c_link] = c_link.split("/")[-1]
         else:
-            # fallback: remove leading slash (relative to posts folder)
-            return f'href="{href.lstrip("/")}"'
-    return re.sub(r'href="(/[^"]+)"', repl, content_html)
+            pass
 
-tree = ET.parse(FEED_FILE)
-root = tree.getroot()
-ns = {'atom': 'http://www.w3.org/2005/Atom'}
+    print("Valid Links:", valid_links)
+    return replacements
 
-link_map = {}  # key: original Blogger filename, value: local slug filename
-index_entries = []
-untitled_count = 0
-used_slugs = set()
+def save_posts_as_html(posts, output_dir="sites", link_fixes={}):
+    os.makedirs(output_dir, exist_ok=True)
+ 
+    index_items = []
+    for filename, meta in posts.items():
+        fn = filename.split("/")[-1]
 
-for entry in root.findall("atom:entry", ns):
-    title_elem = entry.find("atom:title", ns)
-    content_elem = entry.find("atom:content", ns)
-    if content_elem is None:
-        continue
+        content = posts[filename]["content"]
+        for x in link_fixes:
+            content = content.replace(x, "sites/"+link_fixes[x])
+            
+        title = fn.replace(".html", "")
+        published = meta.get("published", "")
 
-    if title_elem is not None and title_elem.text:
-        raw_title = title_elem.text.strip()
-        slug = make_slug(raw_title)
-    else:
-        untitled_count += 1
-        raw_title = f"Untitled {untitled_count}"
-        slug = f"untitled-{untitled_count}"
+        # Sanitize filename (strip unsafe characters)
 
-    # Ensure unique slug
-    orig_slug = slug
-    i = 1
-    while slug in used_slugs:
-        slug = f"{orig_slug}-{i}"
-        i += 1
-    used_slugs.add(slug)
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{title}</title>
+</head>
+<body>"
+    <h1>{title}</h1>
+    <p><em>Published: {published}</em></p>
+    {content}
+</body>
+</html>
+"""
+        index_items.append(f'<li><a href="sites/{fn}">{title}</a></li>')
+        with open("sites/"+fn, "w", encoding="utf-8") as f:
+            f.write(html)
+    index_html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Blog Index</title>
+</head>
+<body>
+    <h1>Blog Index</h1>
+    <ul>
+        {'\n'.join(index_items)}
+    </ul>
+</body>
+</html>
+"""
 
-    filename = f"{slug}.html"
+    with open(os.path.join("", "index.html"), "w", encoding="utf-8") as f:
+        f.write(index_html)
 
-    content_html = unescape(content_elem.text or "")
-    parser = LinkExtractor()
-    parser.feed(content_html)
+    print(f"Index page written to {output_dir}/index.html")
 
-    # Map all found href filenames to their slugs as placeholders
-    for link in parser.links:
-        fname = os.path.basename(link)
-        if fname not in link_map:
-            # We don't yet know the slug for these links, set None for now
-            link_map[fname] = None
 
-    # Also add current post's main slug filename to link_map
-    # For this you need to know the original Blogger filename (from URL or id)
-    # Let's get it from the entry id element, which usually ends with post-<number>
-    id_elem = entry.find("atom:id", ns)
-    if id_elem is not None and id_elem.text:
-        # Extract possible filename from id (if present)
-        # Sometimes id is like: tag:blogger.com,1999:blog-...post-12617885354179380
-        # We don't get filename from here directly, so as fallback, map slug.html to itself
-        link_map[f"{slug}.html"] = filename
-    else:
-        link_map[f"{slug}.html"] = filename
+# === Example usage ===
+if __name__ == "__main__":
+    data = collect_all_links()
+    print("Total entries processed:", data["count"])
+    print("Blog count:", len(data["blog_links"]))
+    print("Content count:", len(data["content_links"]))
 
-# At this point, some entries in link_map have None values (unknown slug)
-# We want to fill those None values if possible, but if not, just leave them as is.
+    # Check corrected links
+    link_fixes = correct_links(data["content_links"], data["blog_links"])
 
-# Now rewrite the links in content_html to replace Blogger URLs with local filenames:
-for entry in root.findall("atom:entry", ns):
-    title_elem = entry.find("atom:title", ns)
-    content_elem = entry.find("atom:content", ns)
-    if content_elem is None:
-        continue
 
-    if title_elem is not None and title_elem.text:
-        raw_title = title_elem.text.strip()
-        slug = make_slug(raw_title)
-    else:
-        untitled_count += 1
-        raw_title = f"Untitled {untitled_count}"
-        slug = f"untitled-{untitled_count}"
 
-    filename = f"{slug}.html"
-    content_html = unescape(content_elem.text or "")
-    content_html = replace_relative_links(content_html, link_map)
+    save_posts_as_html(data["posts"], "sites", link_fixes)
 
-    # Write the post file inside site/posts
-    with open(os.path.join(POSTS_DIR, filename), "w", encoding="utf-8") as f:
-        f.write(f"<h1>{raw_title}</h1>\n{content_html}")
 
-    # Add entry to index (index is in script root)
-    index_entries.append(f'<li><a href="site/posts/{filename}">{raw_title}</a></li>')
-
-# Write index.html in script root
-index_html = (
-    "<html><body><h1>Blog Index</h1><ul>\n"
-    + "\n".join(index_entries)
-    + "\n</ul></body></html>"
-)
-with open("index.html", "w", encoding="utf-8") as f:
-    f.write(index_html)
-
-print("✅ Done. Posts saved in 'site/posts/', index.html in script root.")
