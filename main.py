@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-import requests, os
+import requests, os, re
 
 REMOTE_FEED_URL = "https://thway.uk/feeds/posts/default"
 LOCAL_FILE = "feed.atom"
@@ -12,9 +12,9 @@ namespaces = {
 def collect_all_links():
     blog_links = set()
     content_links = set()
-    posts_dict = {}
-    seen_ids = set()
-    count = 0
+    posts_dict = {}      # Store posts keyed by filename with metadata
+    seen_ids = set()     # To avoid duplicate entries by id
+    count = 0            # Total entries processed
 
     def process_entries(entries):
         nonlocal count
@@ -37,6 +37,7 @@ def collect_all_links():
                 fname = filename_elem.text
                 blog_links.add(fname)
 
+                # Save metadata in posts_dict keyed by filename
                 posts_dict[fname] = {
                     "title": title_elem.text if title_elem is not None else None,
                     "content": content_elem.text,
@@ -50,10 +51,16 @@ def collect_all_links():
                         for a_tag in content_root.findall('.//a'):
                             href = a_tag.get('href')
                             if href and not href.startswith("https://") and "/search" not in href:
+                                # Normalize href trailing slash and extension
+##                                if href.endswith('/'):
+##                                    href = href[:-1] + ".html"
+##                                elif not href.endswith('.html'):
+           
                                 content_links.add(href)
                     except ET.ParseError:
                         pass
 
+    # --- Process local entries ---
     try:
         tree = ET.parse(LOCAL_FILE)
         local_entries = tree.getroot().findall('atom:entry', namespaces)
@@ -61,6 +68,7 @@ def collect_all_links():
     except FileNotFoundError:
         print(f"Local file '{LOCAL_FILE}' not found.")
 
+    # --- Process remote entries paginated ---
     start_index = 1
     max_results = 100
 
@@ -85,30 +93,40 @@ def collect_all_links():
     }
 
 def correct_links(content_links, entry_links):
+    link_fixes = {}
+    valid_links = 0
+
+
+    new_entry = []
     replacements = {}
-    entry_filenames = [link.split("/")[-1] for link in entry_links]
+    for c_link in entry_links:
+        new_entry.append(c_link.split("/")[-1])
 
     for c_link in content_links:
-        end = c_link.split("/")[-1]
-        if end in entry_filenames:
-            replacements[c_link] = end
+        if c_link.split("/")[-1] in new_entry:
+            replacements[c_link] = c_link.split("/")[-1]
+        else:
+            pass
 
-    print("Valid Links:", len(replacements))
+    print("Valid Links:", valid_links)
     return replacements
 
 def save_posts_as_html(posts, output_dir="sites", link_fixes={}):
     os.makedirs(output_dir, exist_ok=True)
+ 
     index_items = []
-
     for filename, meta in posts.items():
         fn = filename.split("/")[-1]
+
+        content = posts[filename]["content"]
+        for x in link_fixes:
+            if x in content:
+                content = content.replace(x, "sites/"+link_fixes[x])
+            
         title = fn.replace(".html", "")
-        content = meta.get("content", "")
         published = meta.get("published", "")
 
-        # Fix internal content links
-        for bad_link, fixed_link in link_fixes.items():
-            content = content.replace(bad_link, f"{output_dir}/{fixed_link}")
+        # Sanitize filename (strip unsafe characters)
 
         html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -116,21 +134,16 @@ def save_posts_as_html(posts, output_dir="sites", link_fixes={}):
     <meta charset="UTF-8">
     <title>{title}</title>
 </head>
-<body>
+<body>"
     <h1>{title}</h1>
     <p><em>Published: {published}</em></p>
     {content}
 </body>
 </html>
 """
-
-        with open(os.path.join(output_dir, fn), "w", encoding="utf-8") as f:
+        index_items.append(f'<li><a href="sites/{fn}">{title}</a></li>')
+        with open("sites/"+fn, "w", encoding="utf-8") as f:
             f.write(html)
-
-        index_items.append(f'<li><a href="{output_dir}/{fn}">{title}</a></li>')
-
-    # Write index.html at root
-    joined_items = '\n'.join(index_items)
     index_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -140,16 +153,17 @@ def save_posts_as_html(posts, output_dir="sites", link_fixes={}):
 <body>
     <h1>Blog Index</h1>
     <ul>
-        {joined_items}
+        {'\n'.join(index_items)}
     </ul>
 </body>
 </html>
 """
-    with open("index.html", "w", encoding="utf-8") as f:
+
+    with open(os.path.join("", "index.html"), "w", encoding="utf-8") as f:
         f.write(index_html)
 
-    print(f"Index page written to index.html")
-    print(f"Saved {len(posts)} posts to '{output_dir}/'")
+    print(f"Index page written to {output_dir}/index.html")
+
 
 # === Example usage ===
 if __name__ == "__main__":
@@ -158,5 +172,11 @@ if __name__ == "__main__":
     print("Blog count:", len(data["blog_links"]))
     print("Content count:", len(data["content_links"]))
 
+    # Check corrected links
     link_fixes = correct_links(data["content_links"], data["blog_links"])
+
+
+
     save_posts_as_html(data["posts"], "sites", link_fixes)
+
+
